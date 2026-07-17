@@ -2,6 +2,7 @@
 #include <sodium.h>
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 
 int main() {
     // 0 : success, first call

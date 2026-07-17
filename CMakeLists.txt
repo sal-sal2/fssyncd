@@ -8,6 +8,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(Threads REQUIRED)
 
+enable_testing()
+
 
 include(FetchContent)
 FetchContent_Declare(
@@ -31,6 +33,19 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(SODIUM REQUIRED IMPORTED_TARGET libsodium>=1.0.18)
 
 
+add_library(landrop_core
+    src/file_watcher.cpp
+)
+
+target_include_directories(landrop_core
+    PUBLIC
+        ${CMAKE_SOURCE_DIR}/include
+)
+
+target_link_libraries(landrop_core
+    PUBLIC
+        Threads::Threads
+)
 
 # Main
 add_executable(lan-drop
@@ -39,9 +54,14 @@ add_executable(lan-drop
 
 target_link_libraries(lan-drop
     PRIVATE
+        landrop_core
         asio_standalone
         PkgConfig::SODIUM
         Threads::Threads
+)
+
+add_executable(inotify_prototype
+    prototypes/inotify_prototype.cpp
 )
 
 # Tests

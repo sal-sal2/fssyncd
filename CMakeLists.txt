@@ -35,6 +35,7 @@ pkg_check_modules(SODIUM REQUIRED IMPORTED_TARGET libsodium>=1.0.18)
 
 add_library(landrop_core
     src/file_watcher.cpp
+    src/message.cpp
 )
 
 target_include_directories(landrop_core

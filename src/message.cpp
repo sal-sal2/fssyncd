@@ -213,7 +213,7 @@ std::vector<uint8_t> serialize(const Message& message) {
         const FileMetadata& m = std::get<FileMetadata>(message);
         write_file_metadata(writer, m);
     }
-    else if (std::holds_alternative<FileChunck>(message)) {
+    else if (std::holds_alternative<FileChunk>(message)) {
         const FileChunk& c = std::get<FileChunk>(message);
         write_file_chunk(writer, c);
     }
@@ -255,8 +255,7 @@ std::optional<Message> deserialize(std::span<const uint8_t> buffer) {
             return Message(*chunk);
         }
         default:
-            // Unknown tag byte -- likely a corrupted or malformed
-            // message. Reject it rather than guessing.
+            // Unknown tag byte, likely a modified message
             return std::nullopt;
     }
 }

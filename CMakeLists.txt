@@ -38,6 +38,7 @@ add_library(landrop_core
     src/message.cpp
     src/crypto_strategy.cpp
     src/task_manager.cpp
+    src/hash_utils.cpp
 )
 
 target_include_directories(landrop_core

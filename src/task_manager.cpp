@@ -17,16 +17,24 @@ TaskManager::TaskManager(size_t worker_count, size_t queue_capacity) : task_queu
 }
 
 TaskManager::~TaskManager() {
-    // Unblocks any worker thread waiting
-    // Workers will receive nullopt and break out of their loop
-    task_queue_.close();
-
-    // Clears vector of jthreads and blocks destructor untill each thread finishes their loop
-    workers_.clear();
+    shutdown();
 }
 
 void TaskManager::submit(Task task) {
     task_queue_.push(std::move(task));
+}
+
+void TaskManager::shutdown() {
+    std::call_once(shutdown_flag_, [this] {shutdown_once(); });
+}
+
+void TaskManager::shutdown_once() {
+    // Closes the queue preventing new tasks and pushes
+    // Existing queued tasks are executed before workers exit
+    task_queue_.close();
+
+    // Clears vector of jthreads, calls the jthread destructor, and joins all threads
+    workers_.clear();
 }
 
 void TaskManager::worker_loop() {

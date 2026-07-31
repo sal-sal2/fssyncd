@@ -20,7 +20,7 @@ public:
     // Creates worker threads and prepares the queue
     explicit TaskManager(size_t worker_count = std::thread::hardware_concurrency(), size_t queue_capacity = kDefaultQueueCapacity);
 
-    // Closes the task queue, signals workers to shutdown, and waits for all workers to join
+    // Calls shutdown()
     ~TaskManager();
 
     // Blocks copy and move constructor and assignment
@@ -33,13 +33,21 @@ public:
     // If the queue is full, this will block the the calling thread until space frees up
     void submit(Task task);
 
+    // Now all callers end threads with out destroying the TaskManager object
+    void shutdown();
+
 private:
     // The loop every worker thread runs
     // Pops tasks from task_queue and executes them until the queue is closed and empty
     void worker_loop();
 
+    // Main shutdown function to end threads. Executes once per TaskManager object
+    void shutdown_once();
+
     ConcurrentQueue<Task> task_queue_;
     std::vector<std::jthread> workers_;
+
+    std::once_flag shutdown_flag_;
 };
 
 }

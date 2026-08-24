@@ -4,11 +4,10 @@
 #include <optional>
 #include <utility>
 
-namespace landrop {
+namespace fssyncd {
 
 namespace {
 
-// Helpers to convert a 32 bit integer into an array, and takes the 4 bytes read back into an integer
 std::array<uint8_t, 4> encode_length_header(uint32_t length) {
     return {
         static_cast<uint8_t>(length >> 24),
@@ -31,22 +30,17 @@ TcpConnection::~TcpConnection() {
 }
 
 void TcpConnection::send(const std::vector<uint8_t>& data, asio::error_code& ec) {
-    // asio::write synchronously sends all the bytes
     asio::write(socket_, asio::buffer(data), ec);
 }
 
 void TcpConnection::send_message(const Message& message, asio::error_code& ec) {
-    // Convert the Message object into bytes
     std::vector<uint8_t> payload = serialize(message);
     
-    // Create the header
     std::array<uint8_t, 4> header = encode_length_header(static_cast<uint32_t>(payload.size()));
     
-    // Allocate space for the header and the message body
     std::vector<uint8_t> framed_message;
     framed_message.reserve(header.size() + payload.size());
 
-    // Combine the header and payload bytes
     framed_message.insert(framed_message.end(), header.begin(), header.end());
     framed_message.insert(framed_message.end(), payload.begin(), payload.end());
 
@@ -54,13 +48,13 @@ void TcpConnection::send_message(const Message& message, asio::error_code& ec) {
     send(framed_message, ec);
 }
 
-void TcpConnection::start_receiving_messages(MessageHandler handler) {
-    message_handler_ = std::move(handler);
+void TcpConnection::start_receiving_messages(MessageCallBack cb) {
+    on_message_cb_ = std::move(cb);
     start_read_header();
 }
 
-void TcpConnection::on_disconnect(DisconnectHandler handler) {
-    disconnect_handler_ = std::move(handler);
+void TcpConnection::on_disconnect(DisconnectCallBack cb) {
+    on_disconnect_cb_ = std::move(cb);
 }
 
 bool TcpConnection::is_open() const {
@@ -93,9 +87,9 @@ void TcpConnection::on_header_received(const asio::error_code& error, size_t byt
     uint32_t body_length = decode_length_header(header_buffer_);
 
     // Reject messages larger than 16 MB
-    if (body_length > kMaxMessageBodySize) {
+    if (body_length > MAX_MESSAGE_BODY_SIZE) {
         fail_framed_connection("message body length " + std::to_string(body_length) + " exceeds max allowed " + 
-        std::to_string(kMaxMessageBodySize) + " - closing connection");
+        std::to_string(MAX_MESSAGE_BODY_SIZE) + " - closing connection");
         return;
     }
 
@@ -124,7 +118,7 @@ void TcpConnection::on_body_received(const asio::error_code& error, size_t bytes
     }
 
     // Pass the Message object to the callback
-    message_handler_(*message);
+    on_message_cb_(*message);
 
     // Immediately listen for the next message's header
     if (socket_.is_open()) {
@@ -137,8 +131,8 @@ void TcpConnection::fail_framed_connection(const std::string& reason, const asio
 
     close();
 
-    if (disconnect_handler_) {
-        disconnect_handler_(reason, error);
+    if (on_disconnect_cb_) {
+        on_disconnect_cb_(reason, error);
     }
 }
 

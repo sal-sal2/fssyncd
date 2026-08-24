@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(lan-drop LANGUAGES CXX)
+project(fssyncd LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)  
@@ -15,7 +15,7 @@ include(FetchContent)
 FetchContent_Declare(
     asio
     GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
-    GIT_TAG        asio-1-30-2   
+    GIT_TAG asio-1-30-2   
 )
 FetchContent_MakeAvailable(asio)
 
@@ -41,12 +41,12 @@ add_library(landrop_core
     src/hash_utils.cpp
 )
 
-target_include_directories(landrop_core
+target_include_directories(fssyncd_core
     PUBLIC
         ${CMAKE_SOURCE_DIR}/include
 )
 
-target_link_libraries(landrop_core
+target_link_libraries(fssyncd_core
     PUBLIC
         Threads::Threads
         PkgConfig::SODIUM
@@ -57,17 +57,10 @@ add_executable(lan-drop
     src/main.cpp
 )
 
-target_link_libraries(lan-drop
+target_link_libraries(fssyncd
     PRIVATE
         landrop_core
         asio_standalone
         PkgConfig::SODIUM
         Threads::Threads
 )
-
-add_executable(inotify_prototype
-    prototypes/inotify_prototype.cpp
-)
-
-# Tests
-add_subdirectory(tests)

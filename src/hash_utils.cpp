@@ -1,6 +1,6 @@
 #include "landrop/hash_utils.hpp"
 
-namespace landrop {
+namespace fssyncd {
 
 std::array<uint8_t, crypto_generichash_BYTES> compute_hash(std::span<const uint8_t> data) {
     std::array<uint8_t, crypto_generichash_BYTES> hashed{}

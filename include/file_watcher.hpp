@@ -1,8 +1,8 @@
 #pragma once
 
-#include "landrop/concurrent_queue.hpp"
-#include "landrop/file_event.hpp"
+#include "include/file_event.hpp"
 
+#include <functional>
 #include <stop_token>
 #include <string>
 #include <thread>
@@ -11,7 +11,9 @@ namespace fssyncd {
 
 class FileWatcher {
 public:
-    FileWatcher(std::string watched_directory, ConcurrentQueue<FileEvent>& event_queue);
+    using EventCallback = std::function<void(const FileEvent&)>;
+
+    FileWatcher(std::string watched_directory, EventCallback on_event);
 
     ~FileWatcher();
 
@@ -20,21 +22,19 @@ private:
     void watch_loop(std::stop_token stop_token);
 
     // Checks if the inotify file descriptor has data ready to be read
-    bool inotify_fd_is_readable();
+    bool inotify_has_data();
 
-    // Reads one batch of inotify events and pushes a FileEvent for each relevant one onto event_queue_.
+    // Reads one batch of inotify events and pushes a FileEvent
     void read_and_dispatch_events();
 
-    // Watched directory
     std::string watched_directory_;
+    EventCallback on_event_;
 
     // File descriptor (-1 unititialized)
     int inotify_fd_ = -1;
 
     // Watch ID from the OS (-1 unititialized)
     int watch_descriptor_ = -1;
-
-    ConcurrentQueue<FileEvent>& event_queue_;
 
     std::jthread worker_thread_;
 };

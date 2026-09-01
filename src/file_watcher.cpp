@@ -1,4 +1,4 @@
-#include "landrop/file_watcher.hpp"
+#include "include/file_watcher.hpp"
 
 #include <sys/inotify.h>
 #include <poll.h>
@@ -19,7 +19,6 @@ constexpr size_t EVENT_BUFFER_SIZE = MAX_EVENTS * (sizeof(struct inotify_event) 
 constexpr int TIMEOUT_MS = 200;
 constexpr uint32_t WATCH_MASK = IN_CREATE | IN_DELETE | IN_CLOSE_WRITE;
 
-// Helpers
 // Translate inotify flags to file event type
 bool mask_to_event_type(uint32_t mask, FileEventType& out_type) {
     if (mask & IN_CREATE) {
@@ -36,32 +35,19 @@ bool mask_to_event_type(uint32_t mask, FileEventType& out_type) {
     }
     return false;
 }
-
-// Read and retry on interruptions
-ssize_t read_retry(int fd, void* buffer, size_t buffer_size) {
-    while (true) {
-        ssize_t bytes_read = read(fd, buffer, buffer_size);
-        if (bytes_read == -1 && errno == EINTR) {
-            continue;
-        }
-        return bytes_read;
-    }
 }
 
-}
-
-FileWatcher::FileWatcher(std::string watched_directory, ConcurrentQueue<FileEvent>& event_queue)
-    : watched_directory_(std::move(watched_directory)), event_queue_(event_queue) {
+FileWatcher::FileWatcher(std::string watched_directory, EventCallback on_event) : watched_directory_(std::move(watched_directory)), on_event_(std::move(on_event)) {
 
     inotify_fd_ = inotify_init1(0);
     if (inotify_fd_ == -1) {
-        throw std::runtime_error(std::string("FileWatcher: inotify_init1 failed: ") + std::string(std::strerror(errno)));
+        throw std::runtime_error(std::string("FileWatcher: inotify_init1 failed: ") + std::strerror(errno));
     }
 
     watch_descriptor_ = inotify_add_watch(inotify_fd_, watched_directory_.c_str(), WATCH_MASK);
     if (watch_descriptor_ == -1) {
         close(inotify_fd_);
-        throw std::runtime_error(std::string("FileWatcher: inotify_add_watch failed: ") + std::string(std::strerror(errno)));
+        throw std::runtime_error(std::string("FileWatcher: inotify_add_watch failed: ") + std::strerror(errno));
     }
 
     // Both file descriptor and watch id are valid, start the background worker loop
@@ -69,7 +55,11 @@ FileWatcher::FileWatcher(std::string watched_directory, ConcurrentQueue<FileEven
 }
 
 FileWatcher::~FileWatcher() {
+    // Manually join the thread
     worker_thread_.request_stop();
+    if (worker_thread_.joinable()) {
+        worker_thread_.join();
+    }
 
     if (watch_descriptor_ != -1) {
         inotify_rm_watch(inotify_fd_, watch_descriptor_);
@@ -82,13 +72,13 @@ FileWatcher::~FileWatcher() {
 
 void FileWatcher::watch_loop(std::stop_token stop_token) {
     while (!stop_token.stop_requested()) {
-        if (inotify_fd_is_readable()) {
+        if (inotify_has_data()) {
             read_and_dispatch_events();
         }
     }
 }
 
-bool FileWatcher::inotify_fd_is_readable() {
+bool FileWatcher::inotify_has_data() {
     struct pollfd poll_target{};
     poll_target.fd = inotify_fd_;
     poll_target.events = POLLIN;
@@ -132,9 +122,8 @@ void FileWatcher::read_and_dispatch_events() {
         FileEventType event_type;
         // Translate, package and push the the file event to the queue
         if (event->len > 0 && mask_to_event_type(event->mask, event_type)) {
-            std::string full_path = watched_directory_ + "/" + event->name;
-
-            event_queue_.push(FileEvent{full_path, event_type, std::chrono::system_clock::now()});
+            FileEvent packed_event{watched_directory_ + "/" + event->name, event_type};
+            on_event_(packed_event);
         }
 
         offset += static_cast<ssize_t>(sizeof(struct inotify_event) + event->len);

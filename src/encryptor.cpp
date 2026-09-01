@@ -1,4 +1,4 @@
-#include "landrop/crypto.hpp"
+#include "include/encryptor.hpp"
 
 #include <stdexcept>
 
@@ -7,19 +7,13 @@ namespace fssyncd {
 constexpr size_t NONCE_BYTES = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;  // 24
 constexpr size_t TAG_BYTES = crypto_aead_xchacha20poly1305_ietf_ABYTES;       // 16
 
-Crypto::Crypto(std::span<const uint8_t> pre_shared_key) {
+Encryptor::Encryptor(const EncryptionKey& key) : key_(key) {
     if (sodium_init() < 0) {
         throw std::runtime_error("libsodium failed to initialize");
     }
-
-    if (pre_shared_key.size() != key_.size()) {
-        throw std::runtime_error("pre-shared key must be exactly " + std::to_string(key_.size()) + " bytes");
-    }
-
-    std::copy(pre_shared_key.begin(), pre_shared_key.end(), key_.begin());
 }
 
-std::vector<uint8_t> Crypto::encrypt(std::span<const uint8_t> plaintext) {
+std::vector<uint8_t> Encryptor::encrypt(const std::vector<uint8_t>& plaintext) const{
 
     std::vector<uint8_t> output(NONCE_BYTES + plaintext.size() + TAG_BYTES);
 
@@ -45,7 +39,7 @@ std::vector<uint8_t> Crypto::encrypt(std::span<const uint8_t> plaintext) {
     return output;
 }
 
-std::optional<std::vector<uint8_t>> Crypto::decrypt(std::span<const uint8_t> ciphertext) {
+std::optional<std::vector<uint8_t>> Encryptor::decrypt(const std::vector<uint8_t>& ciphertext) const{
     if (ciphertext.size() < NONCE_BYTES + TAG_BYTES) {
         return std::nullopt;
     }

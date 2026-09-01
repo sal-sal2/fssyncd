@@ -1,6 +1,5 @@
 #pragma once
 
-#include <chrono>
 #include <string>
 
 namespace fssyncd {
@@ -16,7 +15,6 @@ enum class FileEventType {
 struct FileEvent {
     std::string path;
     FileEventType type;
-    std::chrono::system_clock::time_point timestamp;
 };
 
 }

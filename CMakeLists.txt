@@ -33,11 +33,11 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(SODIUM REQUIRED IMPORTED_TARGET libsodium>=1.0.18)
 
 
-add_library(landrop_core
+add_library(fssyncd_core
     src/file_watcher.cpp
     src/message.cpp
-    src/crypto_strategy.cpp
-    src/task_manager.cpp
+    src/encryptor.cpp
+    src/thread_pool.cpp
     src/hash_utils.cpp
 )
 
@@ -53,13 +53,13 @@ target_link_libraries(fssyncd_core
 )
 
 # Main
-add_executable(lan-drop
+add_executable(fssyncd
     src/main.cpp
 )
 
 target_link_libraries(fssyncd
     PRIVATE
-        landrop_core
+        fssyncd_core
         asio_standalone
         PkgConfig::SODIUM
         Threads::Threads

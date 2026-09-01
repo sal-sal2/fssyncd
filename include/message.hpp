@@ -1,42 +1,43 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <optional>
-#include <span>
 #include <string>
-#include <variant>
 #include <vector>
 
 namespace fssyncd {
-// Data is packaged as: [4-byte length][Message payload]
+// Data is sent as a Message
+// Handshake: [1 byte tag][4 byte protocol version]
+// FileMetadata: [1 byte tag][n byte file name][8 byte file size][4 byte chunk count]
+// FileChunk: [1 byte tag][4 byte chunk count][n bytes file contents]
 
-// Type sent after connecting to verify protocol version and crypto key
-struct Handshake {
-    uint32_t protocol_version;
-    std::array<uint8_t, 24> session_nonce;
+
+enum class MessageType: uint8_t {
+    Handshake = 0,
+    FileMetadata = 1,
+    FileChunk = 2,
 };
 
-// Type sent before file transfer starts to describe the file
-struct FileMetadata {
-    std::string path;
-    uint64_t file_size;
-    uint32_t chunk_count;
+struct Message {
+    MessageType type;
+
+    // Handshake field
+    uint32_t protocol_version = 0;
+
+    // FileMetadata fields
+    std::string file_name;
+    uint64_t file_size = 0;
+    uint32_t chunk_count = 0;
+
+    // FileChunk fields
+    uint32_t chunk_index = 0;
+    std::vector<uint8_t> chunk_data;
 };
-
-// Type sent to repeatedly transfer the actual file content
-struct FileChunk {
-    uint32_t chunk_index;
-    std::vector<uint8_t> data;
-};
-
-
-using Message = std::variant<Handshake, FileMetadata, FileChunk>;
 
 // Converts Message object into list of bytes to send over the network
-std::vector<uint8_t> serialize(const Message& message);
+std::vector<uint8_t> serialize_message(const Message& message);
 
 // Coverts list of bytes from the network back into a Message object
-std::optional<Message> deserialize(std::span<const uint8_t> buffer);
+std::optional<Message> deserialize_message(const std::vector<uint8_t>& buffer);
 
 }  

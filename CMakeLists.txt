@@ -39,6 +39,7 @@ add_library(fssyncd_core
     src/encryptor.cpp
     src/thread_pool.cpp
     src/hash_utils.cpp
+    src/networking.cpp
 )
 
 target_include_directories(fssyncd_core
